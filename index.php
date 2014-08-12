@@ -96,8 +96,6 @@ if (array_key_exists('csvimportskipnullgrade',$CSVsettings) and $CSVsettings->cs
 
 if ($separator !== '') {
     $url->param('separator', $separator);
-// } elseif ($paste == 1){
-//    $url->param('separator','tab');  // force tab?
 }
 if ($verbosescales !== 1) {
     $url->param('verbosescales', $verbosescales);
@@ -132,7 +130,7 @@ print_grade_page_head($course->id, 'import', 'verboseimport', get_string('import
 $logentry=(empty($separator)) ? 'select': 'map';
 $logentry=(empty($iid)) ? $logentry : 'preview';
 $logentry=(empty($doupdate)) ? $logentry : 'process';
-add_to_log($course->id,'csvpreview','view','',$logentry);
+vi_add_to_log($course->id,'csvpreview','view','',$logentry);
 
 // Set up the grade import mapping form.
 $gradeitems = array();
@@ -159,6 +157,18 @@ $wcnt_overmax = 0; // allowed by system setting
 $colerr=0;
 $rebuild=0;
 if ($iid or $showdetail) $rebuild=1;
+
+/**
+ * bbb_add_to_log hack for using legacy add to log without debug screaming at us
+ */
+function vi_add_to_log($courseid, $module, $action, $url='', $info='', $cm=0, $user=0) {
+    if (function_exists('get_log_manager')) {
+        $manager = get_log_manager();
+        $manager->legacy_add_to_log($courseid, $module, $action, $url, $info, $cm, $user);
+    } else if (function_exists('add_to_log')) {
+        add_to_log($courseid, $module, $action, $url, $info, $cm, $user);
+    }
+}
 
 function outputSection($SecName, $Content,$output=null)
 {
@@ -680,7 +690,6 @@ if ($formdata = $mform2->get_data() or $rebuild) {
                                 $key = array_search($value, $scales);
                                 if ($key === false) {
                                     if (array_key_exists('csvimportskipbaddata',$CSVsettings) and $CSVsettings->csvimportskipbaddata) {
-                                        // $line['msg']="invalid scale value for $header[$key] "; // in column $key";
                                         $line['msg']=get_string('csvscaleerr','gradeimport_verboseimport',$header[$key]);
                                         $bad_grades[] = $line; $ecnts->ecnt_bad++; continue;
                                     } else {
@@ -701,13 +710,10 @@ if ($formdata = $mform2->get_data() or $rebuild) {
                             } else {
                                 // If the value has a local decimal or can correctly be unformatted, do it.
                                 $validvalue = unformat_float($value, true);
-// print "col: $key item:$t0 val: $value dec: $validvalue<hr>";
-// print ($validvalue !== false) ? "okay<hr>":"false<hr>"; 
                                 if ($validvalue !== false) {
                                     $value = $validvalue;
                                 } else {
                                     if (array_key_exists('csvimportskipbaddata',$CSVsettings) and $CSVsettings->csvimportskipbaddata) {
-                                        // $line['msg']="invalid grade for $header[$key] "; // in column $key";
                                         $line['msg']=get_string('csvgradeerr','gradeimport_verboseimport',$header[$key]);
                                         $bad_grades[] = $line; $ecnts->ecnt_bad++;
                                         continue;
@@ -752,7 +758,6 @@ if ($formdata = $mform2->get_data() or $rebuild) {
                             }
                         }
                         if ($gradeitem->grademax == GRADE_TYPE_VALUE) {
-//                        $ng = format_float($newgrade->finalgrade, $gradeitem->decimals);
                             $ng = grade_format_gradevalue($gradeitem->grademax, $newgrade->finalgrade);
 
                             print "grade $ng<br>";
@@ -1069,7 +1074,6 @@ if (!empty($debug)) print "cancel: $cancelupd showdetail: $showdetail doupdate: 
                 $buttondet = $OUTPUT->single_button(new moodle_url($indexphp, $optiond),
                      get_string('csvbtnmoredetail','gradeimport_verboseimport'));
             }
-//        echo $OUTPUT->confirm("Ready to update? ", $buttongo,$buttonc);
             echo $OUTPUT->confirm($buttondet, $buttongo,$buttonc);
             echo $OUTPUT->footer();
             $status=false;
@@ -1078,7 +1082,7 @@ if (!empty($debug)) print "cancel: $cancelupd showdetail: $showdetail doupdate: 
 
     if ($noupdates) {
         $status=false;
-    }    
+    }
     /// at this stage if things are all ok, we commit the changes from temp table
     if ($status) {
  print "updating...<br>";
