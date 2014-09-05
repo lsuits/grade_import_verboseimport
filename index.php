@@ -20,6 +20,7 @@ require_once($CFG->libdir.'/gradelib.php');
 require_once($CFG->dirroot.'/grade/lib.php');
 require_once($CFG->dirroot. '/grade/import/verboseimport/grade_import_form.php');
 require_once($CFG->dirroot.'/grade/import/lib.php');
+require_once($CFG->dirroot. '/grade/import/verboseimport/lib.php'); // override update
 require_once($CFG->libdir . '/csvlib.class.php');
 
            
@@ -149,6 +150,7 @@ $lcnt_in = $lcnt_ok = $lcnt_mt = 0;
 $icnt_fb = $icnt_upd = $icnt_new = 0;
 $scnt_all = $scnt_new = $scnt_upd = 0;
 $gcnt_ok = 0;
+$fcnt_all = 0;
 $ecnts = new stdClass();
 $ecnts->ecnt_null = 0 ; $ecnts->ecnt_lok = 0; $ecnts->ecnt_bad = 0;
 $ecnts->ecnt_ngrp = 0 ; $ecnts->ecnt_nouser = 0; $ecnts->ecnt_noupd = 0;
@@ -177,10 +179,10 @@ function outputSection($SecName, $Content,$output=null)
     $grnspan='<span style="color: green;">';
     $redspan='<span style="color: red;">';
     $orgspan='<span style="color: #AA6600;">';
-    if(strpos($SecName,'Error') !== false){
+    if (strpos($SecName,'Error') !== false) {
         $secnam=$redspan.$SecName.'</span>';
         $hlevel=2;
-    } elseif(strpos($SecName,'Warning') !== false){
+    } elseif(strpos($SecName,'Warning') !== false) {
         $secnam=$orgspan.$SecName.'</span>';
         $hlevel=3;
     } else {
@@ -214,6 +216,8 @@ function patch_csv($text,$separator) {
 //        $yext = preg_replace("/\n[,]*\n/", "\n", $text);
 //        $rcnt = count(explode("\n",$yext));
 //        $discard=$tcnt - $rcnt; 
+//  - one more for bad pasting style...
+    $text = preg_replace("/^[\n]*/","", $text);
     $sep = csv_import_reader::get_delimiter($separator);
     $newchr='~^~';
     $text = explode("\n",$text);
@@ -245,15 +249,15 @@ EOX;
             }
             if ($cols < $ccnt) {
                 $colerr++; 
-                if($colerr==1)print $OUTPUT->notification($hdrmsg,array());
+                if ($colerr==1) print $OUTPUT->notification($hdrmsg,array());
                 print "&nbsp; " . get_string('csvoriginal','gradeimport_verboseimport')
                     .get_string('csvtoofewcols','gradeimport_verboseimport') . " (&lt;$ccnt) -<br>&nbsp; $line<br>";
                 $line=str_replace($newchr,$sep,$x).str_repeat($sep,($ccnt-$cols));
-                print "&nbsp;" . get_string('csvfixed','gradeimport_verboseimport') . " -<br>&nbsp; $line<br>";
+                print "&nbsp; " . get_string('csvfixed','gradeimport_verboseimport') . " -<br>&nbsp; $line<br>";
             }
             if ($cols > $ccnt) {
                 $colerr++; 
-                if($colerr==1)echo $OUTPUT->notification($hdrmsg,array());
+                if ($colerr==1) echo $OUTPUT->notification($hdrmsg,array());
                 print "&nbsp; " . get_string('csvoriginal','gradeimport_verboseimport')
                     .get_string('csvtoomanycols','gradeimport_verboseimport') . " (&lt;$ccnt) -<br>&nbsp; $line<br>";
                 $rcol = ($cols - $ccnt);
@@ -328,7 +332,7 @@ if (!$iid) {
             $text = $mform->get_file_content('userfile');
         }    
 
-        if($forcecsv)$text = patch_csv($text,$separator);
+        if ($forcecsv) $text = patch_csv($text,$separator);
         $iid = csv_import_reader::get_new_iid('grade');
         $csvimport = new csv_import_reader($iid, 'grade');
 
@@ -353,7 +357,7 @@ EOX;
             echo $OUTPUT->single_button($url, 'GoBack');
             return;
         }
-        if($colerr)echo $OUTPUT->notification($hdrmsg,array());
+        if ($colerr) echo $OUTPUT->notification($hdrmsg,array());
         foreach ($header as $i => $h) {
             $h = trim($h); // Remove whitespace.
             $h = clean_param($h, PARAM_RAW); // Clean the header.
@@ -394,7 +398,7 @@ $csvimport = new csv_import_reader($iid, 'grade');
 $header = $csvimport->get_columns();
 
 // we create a form to handle mapping data from the file to the database.
-$mform2 = new grade_import_mapping_form(null, array('gradeitems'=>$gradeitems, 'header'=>$header, 'zerotoupdate' => '1'.$nullignore));
+$mform2 = new grade_import_mapping_form(null, array('gradeitems'=>$gradeitems, 'header'=>$header, 'nulltoupdate' => '1'.$nullignore));
 $mform2->set_data(array('iid' => $iid, 'id' => $id, 'importcode'=>$importcode, 'verbosescales' => $verbosescales));
 
 // Here, if we have data, we process the fields and enter the information into the database.
@@ -622,8 +626,9 @@ if ($formdata = $mform2->get_data() or $rebuild) {
                         } 
                         $newgrade->finalgrade   = $value;
                         if (array_key_exists('csvimportskipnullgrade',$CSVsettings) and $CSVsettings->csvimportskipnullgrade) {
-                            if ($newgrade->finalgrade === null // drop nulls?
-                            or ($nullignore && $newgrade->finalgrade == null)) { // or 0.0s?
+                            if (($nullignore && $newgrade->finalgrade === null) // drop nulls?
+                            // or ($zeroignore && $newgrade->finalgrade == null)
+                            ) { // or 0.0s?
                                 // $line['msg']="missing grade for $header[$key] "; // in column $key";
                                 $line['msg']=get_string('csvnoscoreerr','gradeimport_verboseimport',$header[$key]);
                                 $skipped_lines[] = $line; $ecnts->ecnt_null++;
@@ -646,6 +651,7 @@ if ($formdata = $mform2->get_data() or $rebuild) {
                             echo $OUTPUT->notification(get_string('importfailed', 'grades'));
                             break 3;
                         }
+                        $fcnt_all++;
 
                         // t1 is the id of the grade item
                         $feedback = new stdClass();
@@ -731,8 +737,9 @@ if ($formdata = $mform2->get_data() or $rebuild) {
                             $newgrade->finalgrade = $value;
                         }
                         if (array_key_exists('csvimportskipnullgrade',$CSVsettings) and $CSVsettings->csvimportskipnullgrade) {
-                            if ($newgrade->finalgrade === null // drop nulls?
-                            or ($nullignore && $newgrade->finalgrade == null)) { // or 0.0s?
+                            if (($nullignore && $newgrade->finalgrade === null) // drop nulls?
+                            // or ($zeroignore && $newgrade->finalgrade == null)
+                            ) { // or 0.0s?
                                 // $line['msg']="missing grade for $header[$key] "; // in column $key";
                                 $line['msg']=get_string('csvnoscoreerr','gradeimport_verboseimport',$header[$key]);
                                 $skipped_lines[] = $line; $ecnts->ecnt_null++;
@@ -883,38 +890,19 @@ if ($formdata = $mform2->get_data() or $rebuild) {
         }
         $lcnt_ok++;
     } // end while lines
+    if ($scnt_all == 0 and $fcnt_all == 0) {
+        print("<strong>Cannot find any score or feedback mappings</strong>");
+        echo $OUTPUT->single_button($url, 'GoBack');
+        return;
+    }
     if (array_key_exists('csvimportauditcsv',$CSVsettings) and $CSVsettings->csvimportauditcsv) {
         $spc="&nbsp;&nbsp;";
         $gcnt_tot = $icnt_upd + $icnt_new;
 
-        $rptb = <<< EOX
-
-Grades that will be updated:
-    - Number of grades that will be inserted:  $icnt_new 
-    - Number of grades that will be replaced with new score:  $icnt_upd 
-    Warnings: 
-       - Number of grade scores over the max grade item:  $wcnt_overmax 
-
-Grades that will not be updated: 
-  - Number of scores that are locked: $ecnts->ecnt_lok
-  - Number of scores that have invalid data in input file: $ecnts->ecnt_bad
-  - Number of scores that have a null value in input file: $ecnts->ecnt_null 
-  - Number of scores that will not update as the grade is identical: $ecnts->ecnt_noupd
-  - Number of scores not in group: $ecnts->ecnt_ngrp 
-  - Number of students that do not exist in System: $ecnts->ecnt_nouser 
-
-Input File Information: 
- - Number of lines/rows:  $lcnt_in 
- - ???Number of Empty lines: $lcnt_mt 
- - Number of Valid Lines: $lcnt_ok 
- - Number of grades that will update in System:  $gcnt_tot
- - ???Feedback ???:  $icnt_fb
-EOX;
-
         $rptb = array();
         $rptb[]="<p>Errors:";
         $rptb[]=get_string('csvrptstudenterr','gradeimport_verboseimport')." $ecnts->ecnt_nouser ";
-        if($notin_group){
+        if ($notin_group) {
             $rptb[]=get_string('csvrptgrperr','gradeimport_verboseimport')." $ecnts->ecnt_ngrp ";
         }
         $rptb[]=get_string('csvrptscorebad','gradeimport_verboseimport')." $ecnts->ecnt_bad";
@@ -926,12 +914,12 @@ EOX;
             $rptb[]=get_string('csvrptovermax','gradeimport_verboseimport')." - Number of grade scores over the max grade item:  $ecnts->ecnt_overmax ";
         }
 
-        if($ecnts->ecnt_noupd > 0 or $ecnts->ecnt_null > 0){
+        if ($ecnts->ecnt_noupd > 0 or $ecnts->ecnt_null > 0) {
             $rptb[]="<p>Warnings - will not update: ";
             if (!empty($CSVsettings->csvimportskipsamegrade) and $ecnts->ecnt_noupd > 0) {
                 $rptb[]=get_string('csvrptduplicate','gradeimport_verboseimport')." $ecnts->ecnt_noupd ";
             }
-            if ($nullignore !== 0 and $ecnts->ecnt_null > 0) {
+            if ($ecnts->ecnt_null > 0) {
                 $rptb[]=get_string('csvrptnullvals','gradeimport_verboseimport')." $ecnts->ecnt_null ";
             }
         }
@@ -947,14 +935,19 @@ EOX;
         $bad_upd = $scnt_upd - $icnt_upd;
 
         $rpta = "\n\nScores that will update: $gcnt_tot\n";
-        if($bad_cnt) $rpta .= "Scores that will not update: $bad_cnt\n";
-        if($icnt_fb) $rpta .= "Feedback that will update: $icnt_fb\n"; 
+        if ($bad_cnt) $rpta .= "Scores that will not update: $bad_cnt\n";
+        if ($icnt_fb) $rpta .= "Feedback that will update: $icnt_fb\n"; 
 
         $Content=nl2br($rpta.'<br>');
-        $Content.='<br> - '.  get_string('csvnullswill','gradeimport_verboseimport')
-            .($nullignore ? get_string('csvnullsignored','gradeimport_verboseimport')  
-                : get_string('csvnullsokay','gradeimport_verboseimport'));
-//        outputSection('Import File Summary', $Content);
+        if (!empty($CSVsettings->csvimportskipnullgrade)) { 
+            // only show if not our default
+            if (empty($nullignore)) {
+                $Content.='<br> - '.  get_string('csvnullswill','gradeimport_verboseimport')
+                .($nullignore ? get_string('csvnullsignored','gradeimport_verboseimport')  
+                    : get_string('csvnullsokay','gradeimport_verboseimport'));
+            }    
+        }        
+//        outputSection('Summary', $Content);
         outputSection(get_string('csvrptsummary','gradeimport_verboseimport'), $Content);
 
     }
@@ -988,7 +981,7 @@ EOX;
             $table->head = $lines_hdr; // array_keys((array)$new_grades[0]);
             $table->data = array_values($ovrmax_grades);
             $Content=html_writer::table($table);
-            if($wcnt_overmax > 0){
+            if ($wcnt_overmax > 0) {
                 // outputSection('Warning: Accepted grade exceeds Item Maximum', $Content);
                 outputSection(get_string('csvrptoverwarn','gradeimport_verboseimport'), $Content);
             } else {
@@ -1056,7 +1049,7 @@ if (!empty($debug)) print "cancel: $cancelupd showdetail: $showdetail doupdate: 
             $buttonc = new single_button(new moodle_url($indexphp, $optionc), 'Cancel');
             $options['showdetail']=0;
             $options['doupdate']=1;
-            if(empty($CSVsettings->csvimportpreviewonly)) {
+            if (empty($CSVsettings->csvimportpreviewonly)) {
                 $buttongo = new single_button(new moodle_url($indexphp, $options),
                      get_string('csvbtnupdate','gradeimport_verboseimport'));
             } else {
@@ -1086,7 +1079,10 @@ if (!empty($debug)) print "cancel: $cancelupd showdetail: $showdetail doupdate: 
     /// at this stage if things are all ok, we commit the changes from temp table
     if ($status) {
  print "updating...<br>";
-        grade_import_commit($course->id, $importcode);
+        $dofeedback=1; $verbose=1; 
+        // TFW 2014-09-02 had to duplicate this function. Passing new nullignore
+        // switch to allow null to overlay scores
+        grade_verbose_import_commit($course->id, $importcode, $dofeedback, $verbose, $nullignore);
     } else {
         import_cleanup($importcode);
     }

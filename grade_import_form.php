@@ -141,13 +141,18 @@ class grade_import_mapping_form extends moodleform {
             }
         }
         // Show null/zero prompt?
-        $nulltoupdate = empty($this->_customdata['nulltoupdate']) ? '0' : '1';
+        // If we are ignoring nulls('-',''), possibly they want zeros ignored as well?
+        // See index.php - if (!empty($CSVsettings->csvimportskipnullgrade)) {
+        $nulltoupdate = empty($this->_customdata['nulltoupdate']) ? 0 : 1;
         if ($nulltoupdate) {
             $nullignore=substr($this->_customdata['nulltoupdate'],-1);
-            $mform->addElement('header', 'general', 'Data options');
+            $mform->addElement('header', 'generaldata', 'Data options');
+            $mform->setExpanded('generaldata', false);
             $options = array(1=>get_string('yes'), 0=>get_string('no'));
-            $mform->addElement('select', 'nullignore', 'Ignore NULL grades', $options,'Otherewise these will overlay existing scores');
+            $mform->addElement('select', 'nullignore', 'Ignore NULL grades', $options,'Otherwise these will overlay existing scores');
             $mform->setDefault('nullignore', !empty($nullignore) ? 1 : 0);
+        } else {
+            $mform->addElement('hidden', 'nullignore', '0');
         }
         // course id needs to be passed for auth purposes
         $mform->addElement('hidden', 'map', 1);
