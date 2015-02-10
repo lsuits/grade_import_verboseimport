@@ -55,7 +55,7 @@ class grade_import_form extends moodleform {
             $mform->addElement('textarea', 'userdata', 'Data',array('rows'=>10, 'style'=>'margin: 0px 0px 10px; width: 475px; height: 209px;'));
             $mform->addRule('userdata', null, 'required');
         }
-        $encodings = textlib::get_encodings();
+        $encodings = core_text::get_encodings();
         $mform->addElement('select', 'encoding', get_string('encoding', 'grades'), $encodings);
         if (!empty($features['includeseparator'])) {
             $radio = array();
