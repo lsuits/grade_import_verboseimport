@@ -111,6 +111,12 @@ if ($nullignore !== 0) {
     $url->param('nullignore', $nullignore);
 }
 
+if ($cancelupd) {
+    import_cleanup($importcode);
+    redirect($url);
+    die();
+}
+
 $PAGE->set_url($url);
 
 if (!$course = $DB->get_record('course', array('id'=>$id))) {
@@ -278,12 +284,6 @@ EOX;
     $text=implode("\n",$tdta);
     return $text;
 } // end function patch_csv 
-
-if ($cancelupd) {
-    import_cleanup($importcode);
-    redirect($url);
-    die();
-}
 
 if ($id) {
     if ($grade_items = grade_item::fetch_all(array('courseid'=>$id))) {
