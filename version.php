@@ -25,6 +25,6 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2014090200;        // The current plugin version (Date: YYYYMMDDXX)
+$plugin->version   = 2015042800;        // The current plugin version (Date: YYYYMMDDXX)
 $plugin->requires  = 2012112900;        // Requires this Moodle version
 $plugin->component = 'gradeimport_verboseimport'; // Full name of the plugin (used for diagnostics)

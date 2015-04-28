@@ -146,6 +146,7 @@ $gradeitems = array();
 $skipped_lines = array(); // empty
 $bad_grades = array();
 $locked_grades = array();
+$locked_feedbck_grades = array();
 $notin_group = array();
 $notin_site = array();
 $same_grades = array();
@@ -156,9 +157,10 @@ $lcnt_in = $lcnt_ok = $lcnt_mt = 0;
 $icnt_fb = $icnt_upd = $icnt_new = 0;
 $scnt_all = $scnt_new = $scnt_upd = 0;
 $gcnt_ok = 0;
-$fcnt_all = 0;
+$fcnt_all = $fcnt_upd = 0;
 $ecnts = new stdClass();
 $ecnts->ecnt_null = 0 ; $ecnts->ecnt_lok = 0; $ecnts->ecnt_bad = 0;
+$ecnts->ecnt_lokfb = 0;
 $ecnts->ecnt_ngrp = 0 ; $ecnts->ecnt_nouser = 0; $ecnts->ecnt_noupd = 0;
 $ecnts->ecnt_overmax = 0; // prevented by system setting
 $wcnt_overmax = 0; // allowed by system setting
@@ -816,9 +818,10 @@ if ($formdata = $mform2->get_data() or $rebuild) {
                 if (!empty($newgrade->itemid) and $grade_grade = new grade_grade(array('itemid'=>$newgrade->itemid, 'userid'=>$studentid))) {
 // print_r($grade_grade); print "gradegrade"; return;
                     if ($grade_grade->is_locked()) {
-                        // individual grade locked
+                        // Individual grade locked - null grade in case other fields mapped.
                         if (array_key_exists('csvimportskiplockedgrade',$CSVsettings) and $CSVsettings->csvimportskiplockedgrade) {
                             $locked_grades[] = $newgrade; $ecnts->ecnt_lok++;
+                            $newgrade->finalgrade = NULL;
                             continue;
                         } else {
                             $status = false;
@@ -870,6 +873,26 @@ if ($formdata = $mform2->get_data() or $rebuild) {
         // updating/inserting all comments here
         if ($status and !empty($newfeedbacks)) {
             foreach ($newfeedbacks as $newfeedback) {
+                if (array_key_exists('csvimportskiplockedgrade',$CSVsettings) and $CSVsettings->csvimportskiplockedgrade) {
+                    $skipfb = 0;
+                    foreach ($locked_grades as $key => $locked) {
+                        if ($locked->userid == $studentid and $locked->itemid == $newfeedback->itemid) {
+                            $newfeedback->studentid = $studentid;
+                            $locked_feedbck_grades[] = $newfeedback; $ecnts->ecnt_lokfb++;
+                            $skipfb = 1; 
+                            break;
+                        }
+                    }
+                    if ($skipfb) {
+                        continue;
+                    }
+                    $grade_grade = new grade_grade(array('itemid'=>$newfeedback->itemid, 'userid'=>$studentid));
+                    if ($grade_grade->is_locked()) {
+                        $newfeedback->studentid = $studentid;
+                        $locked_feedbck_grades[] = $newfeedback; $ecnts->ecnt_lokfb++;
+                        continue;
+                    }
+                }
                 $sql = "SELECT *
                           FROM {grade_import_values}
                          WHERE importcode=? AND userid=?
@@ -909,6 +932,9 @@ if ($formdata = $mform2->get_data() or $rebuild) {
         if (!empty($CSVsettings->csvimportskiplockedgrade) and $ecnts->ecnt_lok > 0) {
             $rptb[]=get_string('csvrptlocked','gradeimport_verboseimport')." - Number of scores that are locked: $ecnts->ecnt_lok";
         }
+        if (!empty($CSVsettings->csvimportskiplockedgrade) and $ecnts->ecnt_lokfb > 0) {
+            $rptb[]="Error: Grade feedback bypassed - Locked grade - Number of scores that are locked: $ecnts->ecnt_lokfb";
+        }
 
         if ($ecnts->ecnt_overmax > 0) {
             $rptb[]=get_string('csvrptovermax','gradeimport_verboseimport')." - Number of grade scores over the max grade item:  $ecnts->ecnt_overmax ";
@@ -937,6 +963,8 @@ if ($formdata = $mform2->get_data() or $rebuild) {
         $rpta = "\n\nScores that will update: $gcnt_tot\n";
         if ($bad_cnt) $rpta .= "Scores that will not update: $bad_cnt\n";
         if ($icnt_fb) $rpta .= "Feedback that will update: $icnt_fb\n"; 
+        $fcnt_upd = $fcnt_all - $icnt_fb;
+        if ($fcnt_upd) $rpta .= "Feedback that will not update: $fcnt_upd\n"; 
 
         $Content=nl2br($rpta.'<br>');
         if (!empty($CSVsettings->csvimportskipnullgrade)) { 
@@ -997,6 +1025,13 @@ if ($formdata = $mform2->get_data() or $rebuild) {
             $Content=html_writer::table($table);
             // outputSection('Error: Grade score bypassed - Locked grade', $Content);
             outputSection(get_string('csvrptlocked','gradeimport_verboseimport'), $Content);
+        }
+        if ($locked_feedbck_grades) {
+            $table = new html_table();
+            $table->head = array_keys((array)$locked_feedbck_grades[0]);
+            $table->data = array_values($locked_feedbck_grades);
+            $Content=html_writer::table($table);
+            outputSection(get_string('csvrptlocked','gradeimport_verboseimport').' for Feedback', $Content);
         }
         if ($skipped_lines) {
             $table = new html_table();

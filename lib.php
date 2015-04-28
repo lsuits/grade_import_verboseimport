@@ -111,7 +111,11 @@ function grade_verbose_import_commit($courseid, $importcode, $importfeedback=tru
                         $failed = 1;
                         break 2;
                     }
-                    $oldcnts[$gitem->itemname]++;
+                    if (array_key_exists($gitem->itemname,$oldcnts)) {
+                        $oldcnts[$gitem->itemname]++;
+                    } else  { 
+                        $oldcnts[$gitem->itemname] = 1;
+                    }
                 }
                 //$itemdetails -> idnumber = $gradeitem->idnumber;
                 $modifieditems[] = $itemid;
