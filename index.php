@@ -30,7 +30,7 @@ $verbosescales = optional_param('verbosescales', 1, PARAM_BOOL);
 $iid           = optional_param('iid', null, PARAM_INT);
 $importcode    = optional_param('importcode', '', PARAM_FILE);
 
-$paste         = optional_param('paste', 1, PARAM_BOOL);
+$paste         = optional_param('paste', 0, PARAM_BOOL);
 $cancelupd     = optional_param('cancelupd', 0, PARAM_BOOL);
 $cancelmap     = optional_param('cancel', 0, PARAM_BOOL);
 $showdetail    = optional_param('showdetail', 0, PARAM_INT);
@@ -812,11 +812,9 @@ if ($formdata = $mform2->get_data() or $rebuild) {
                 $newgrade->importcode = $importcode;
                 $newgrade->userid     = $studentid;
                 $newgrade->importer   = $USER->id;
-// TODD
-// need to save locked list[item_studentid - to lookup and bypass in 'feedback loop' ;)
+                // need to save locked to lookup and bypass in 'feedback loop' (use report array;)
                 // check if grade_grade is locked and if so, abort
                 if (!empty($newgrade->itemid) and $grade_grade = new grade_grade(array('itemid'=>$newgrade->itemid, 'userid'=>$studentid))) {
-// print_r($grade_grade); print "gradegrade"; return;
                     if ($grade_grade->is_locked()) {
                         // Individual grade locked - null grade in case other fields mapped.
                         if (array_key_exists('csvimportskiplockedgrade',$CSVsettings) and $CSVsettings->csvimportskiplockedgrade) {
