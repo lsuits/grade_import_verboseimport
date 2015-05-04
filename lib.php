@@ -111,9 +111,9 @@ function grade_verbose_import_commit($courseid, $importcode, $importfeedback=tru
                         $failed = 1;
                         break 2;
                     }
-                    if (array_key_exists($gitem->itemname,$oldcnts)) {
+                    if (array_key_exists($gitem->itemname, $oldcnts)) {
                         $oldcnts[$gitem->itemname]++;
-                    } else  { 
+                    } else {
                         $oldcnts[$gitem->itemname] = 1;
                     }
                 }
