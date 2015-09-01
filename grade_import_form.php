@@ -109,7 +109,7 @@ class grade_import_mapping_form extends moodleform {
         }
         $mform->addElement('select', 'mapfrom', get_string('mapfrom', 'grades').$OUTPUT->help_icon('mapfrom', 'gradeimport_verboseimport'), $mapfromoptions);
 
-        $maptooptions = array( 'useridnumber'=>'student id number', 'useremail'=>'email address', 'username'=>'username', '0'=>'ignore');
+        $maptooptions = array( 'useridnumber'=>get_string('idnumber', 'moodle'), 'useremail'=>get_string('email', 'moodle'), 'username'=>get_string('username', 'moodle'), '0'=>'ignore');
         $mform->addElement('select', 'mapto', get_string('mapto', 'grades').$OUTPUT->help_icon('mapto', 'gradeimport_verboseimport'), $maptooptions);
 
         $mform->addElement('header', 'general', get_string('mappings', 'grades').$OUTPUT->help_icon('mappings', 'gradeimport_verboseimport'));
